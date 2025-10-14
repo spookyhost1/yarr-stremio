@@ -16,8 +16,8 @@
                     fontFamily: { sans: ['DM Sans', 'sans-serif'] },
                     colors: {
                         primary: {
-                            50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5', 
-                            400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c', 
+                            50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5',
+                            400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c',
                             800: '#991b1b', 900: '#7f1d1d',
                         }
                     }
@@ -853,6 +853,9 @@
                                     <button type="button" onclick="testManifest()" class="px-6 py-3 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                         Test Configuration
                     </button>
+                                    <button type="button" onclick="copyManifestUrl()" class="px-6 py-3 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                        Copy URL
+                    </button>
                                     <button type="submit" class="px-8 py-4 bg-primary-600 text-white text-lg font-medium rounded-lg hover:bg-primary-700 shadow-lg">
                                         Install to Stremio <i class="fas fa-download ml-2"></i>
                     </button>
@@ -1076,8 +1079,8 @@
             
             // Update logo
             const logo = document.getElementById('headerLogo');
-            logo.src = isDarkMode 
-                ? 'https://spooky.host/yarrwhitewide.png' 
+            logo.src = isDarkMode
+                ? 'https://spooky.host/yarrwhitewide.png'
                 : 'https://spooky.host/yarrlogowide.png';
             
             // Save to localStorage
@@ -1253,8 +1256,8 @@ Details: 62.5 GB | 125 seeds | YTS
                     const shouldBeChecked = activeSources.includes(source) && !disabledSources.has(source);
                     return `
                     <div class="flex items-center py-1">
-                        <input type="checkbox" id="manual-${source.replace(/[.\s]/g, '')}" 
-                               ${shouldBeChecked ? 'checked' : ''} 
+                        <input type="checkbox" id="manual-${source.replace(/[.\s]/g, '')}"
+                               ${shouldBeChecked ? 'checked' : ''}
                                onchange="handleManualSourceChange('${source}', this.checked)"
                                class="h-3 w-3 text-primary-600 border-gray-300 rounded">
                         <label for="manual-${source.replace(/[.\s]/g, '')}" class="ml-2 text-xs text-gray-700">${source}</label>
@@ -1396,7 +1399,7 @@ Details: 62.5 GB | 125 seeds | YTS
             
             sourcesList.innerHTML = sources.map(source => {
                 return `
-                <div class="source-item group flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-xs transition-all hover:bg-gray-100" 
+                <div class="source-item group flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-xs transition-all hover:bg-gray-100"
                      onmouseenter="this.querySelector('.checkmark').style.display='none'; this.querySelector('.remove-btn').style.display='inline'"
                      onmouseleave="this.querySelector('.checkmark').style.display='inline'; this.querySelector('.remove-btn').style.display='none'">
                     <span class="text-gray-700">${source}</span>
@@ -1598,33 +1601,67 @@ Details: 62.5 GB | 125 seeds | YTS
             }
         }
 
-        // Form submission
-        document.getElementById('configForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(e.target);
+        // Build Stremio install URL from form data
+        function buildStremioUrl() {
+            const formData = new FormData(document.getElementById('configForm'));
             const config = {};
-            
+
             // Handle regular fields
             for (let [key, value] of formData.entries()) {
-                    config[key] = value;
+                config[key] = value;
             }
-            
+
             // Handle language checkboxes
             const selectedLanguages = Array.from(document.querySelectorAll('input[name="language"]:checked')).map(cb => cb.value);
             if (selectedLanguages.length > 0) {
                 config['priorityLanguage'] = selectedLanguages.join(',');
             }
-            
+
             const configStr = Object.entries(config)
                 .filter(([k, v]) => v && v !== 'off')
                 .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
                 .join('&');
-            
-            const manifestUrl = configStr 
+
+            const manifestUrl = configStr
                 ? `${window.location.origin}/${configStr}/manifest.json`
                 : `${window.location.origin}/manifest.json`;
-            
-            window.location.href = `stremio://${manifestUrl.replace('http://', '').replace('https://', '')}`;
+
+            return `stremio://${manifestUrl.replace('http://', '').replace('https://', '')}`;
+        }
+
+        // Build HTTP/HTTPS install URL (converts stremio:// to current scheme)
+        function buildHttpUrl() {
+            const stremioUrl = buildStremioUrl();
+            return stremioUrl.replace('stremio://', window.location.protocol + '//');
+        }
+
+        // Copy manifest URL
+        async function copyManifestUrl() {
+            const resultDiv = document.getElementById('testResult');
+            try {
+                await navigator.clipboard.writeText(buildHttpUrl());
+                resultDiv.innerHTML = `<div class="bg-green-50 border border-green-200 rounded-md p-4">
+                    <div class="flex"><i class="fas fa-check-circle text-green-500 mt-0.5"></i>
+                        <div class="ml-3"><h3 class="text-sm font-medium text-green-800">URL Copied!</h3>
+                            <p class="text-sm text-green-700 mt-1">Installation URL copied to clipboard</p>
+                        </div>
+                    </div>
+                </div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-md p-4">
+                    <div class="flex"><i class="fas fa-times-circle text-red-500 mt-0.5"></i>
+                        <div class="ml-3"><h3 class="text-sm font-medium text-red-800">Error!</h3>
+                            <p class="text-sm text-green-700 mt-1">Failed to copy URL: ${error.message}</p>
+                    </div>
+                    </div>
+                </div>`;
+            }
+        }
+
+        // Form submission
+        document.getElementById('configForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            window.location.href = buildStremioUrl();
         });
 
         // Start setup (hide welcome, show wizard)
@@ -1904,7 +1941,7 @@ Details: 62.5 GB | 125 seeds | YTS
                 .filter(([k, v]) => v && v !== 'off')
                 .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
                 .join('&');
-            return configStr 
+            return configStr
                 ? `${window.location.origin}/${configStr}/manifest.json`
                 : `${window.location.origin}/manifest.json`;
         }
